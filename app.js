@@ -15,16 +15,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const brickOffsetTop = 40
   const brickOffsetLeft = 40
 
-  let currentLevel = 2
+  let currentLevel = 0
   const levelColors = ['#0095DD', '#ff6f3c', '#402a23', '#eb2632']
 
   let paddleX = (canvas.width - paddleWidth) / 2
 
   let x = canvas.width / 2
-  let y = canvas.height - 10 + 5 * currentLevel
+  let y = canvas.height - 10 - 5 * currentLevel
 
-  let dx = 2
-  let dy = -2
+  let dx = 2 + currentLevel
+  let dy = -2 - currentLevel
   
   let leftPressed = false
   let rightPressed = false
@@ -43,12 +43,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const resetLevel = () => {
     x = canvas.width / 2
-    y = canvas.height - 10 + 5 * currentLevel
+    y = canvas.height - 10 - 5 * currentLevel
     dx = 2 + currentLevel
     dy = -2 - currentLevel
     paddleX = (canvas.width - paddleWidth) / 2;
   }
 
+  const nextLevel = () => {
+    for (let c = 0; c < brickColumnCount; c++) {
+      bricks[c] = [];
+      for (let r = 0; r < brickRowCount; r++) {
+        bricks[c][r] = { x: 0, y: 0, status: 1 };
+      }
+    }
+    resetLevel()
+  }
 
   const collisionDetection = () => {
     for (let c = 0; c < brickColumnCount; c++) {
@@ -61,8 +70,26 @@ document.addEventListener('DOMContentLoaded', () => {
             score++
           }
         }
-      }  
+      }
     }
+
+    if (checkBreakAllBricks()) {
+      currentLevel++
+      nextLevel()
+    }
+  }
+
+  const checkBreakAllBricks = () => {
+    for (let c = 0; c < brickColumnCount; c++) {
+      for (let r = 0; r < brickRowCount; r++) {
+        const brick = bricks[c][r];
+        if (brick.status === 1) {
+          return false
+        }
+      }
+    }
+
+    return true
   }
 
   const drawBall = () => {
