@@ -6,31 +6,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const ballRadius = 10
   const paddleHeight = 10
   const paddleWidth = 70
+  const paddleOffsetBottom = 10
 
   const brickRowCount = 3
   const brickColumnCount = 5
   const brickWidth = 70
   const brickHeight = 20
   const brickPadding = 15
-  const brickOffsetTop = 40
+  const brickOffsetTop = 35
   const brickOffsetLeft = 40
 
-  let currentLevel = 0
-  const levelColors = ['#0095DD', '#ff6f3c', '#402a23', '#eb2632']
+  let currentLevel = 5
+  const levelColors = ['#0095DD', '#f8b500', '#ff6f3c', '#402a23', '#eb2632', '#27296d']
+  const totalLevels = levelColors.length
 
   let paddleX = (canvas.width - paddleWidth) / 2
 
   let x = canvas.width / 2
-  let y = canvas.height - 10 - 5 * currentLevel
+  let y = canvas.height - 10 - paddleOffsetBottom * currentLevel
 
-  let dx = 2 + currentLevel
-  let dy = -2 - currentLevel
+  let dx = 2 + currentLevel * 0.5
+  let dy = -2 - currentLevel * 0.5
   
   let leftPressed = false
   let rightPressed = false
 
   let score = 0
   let lives = 3
+
+  let requestAnimation
 
   const bricks = [];
 
@@ -43,20 +47,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const resetLevel = () => {
     x = canvas.width / 2
-    y = canvas.height - 10 - 5 * currentLevel
-    dx = 2 + currentLevel
-    dy = -2 - currentLevel
+    y = canvas.height - 10 - paddleOffsetBottom * currentLevel
+    const index = Math.random() < 0.5
+    dx = ([1, -1].at(index)) * (2 + currentLevel * 0.5)
+    dy = -2 - currentLevel * 0.5
     paddleX = (canvas.width - paddleWidth) / 2;
   }
 
   const nextLevel = () => {
-    for (let c = 0; c < brickColumnCount; c++) {
-      bricks[c] = [];
-      for (let r = 0; r < brickRowCount; r++) {
-        bricks[c][r] = { x: 0, y: 0, status: 1 };
+    currentLevel++
+
+    if (currentLevel >= totalLevels) {
+      alert('CONGRATULATIONS YOU COMPLETED ALL LEVELS!')
+      cancelAnimationFrame(requestAnimation)
+      document.location.reload()
+    } else {
+      for (let c = 0; c < brickColumnCount; c++) {
+        bricks[c] = [];
+        for (let r = 0; r < brickRowCount; r++) {
+          bricks[c][r] = { x: 0, y: 0, status: 1 };
+        }
       }
+      resetLevel()
     }
-    resetLevel()
   }
 
   const collisionDetection = () => {
@@ -74,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (checkBreakAllBricks()) {
-      currentLevel++
       nextLevel()
     }
   }
@@ -102,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const drawPaddle = () => {
     ctx.beginPath()
-    ctx.rect(paddleX, canvas.height - paddleHeight - 5 * currentLevel, paddleWidth, paddleHeight)
+    ctx.roundRect(paddleX, canvas.height - paddleHeight - paddleOffsetBottom * currentLevel, paddleWidth, paddleHeight, 4)
     ctx.fillStyle = levelColors[currentLevel];
     ctx.fill()
     ctx.closePath()
@@ -117,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
           bricks[c][r].x = brickX;
           bricks[c][r].y = brickY;
           ctx.beginPath();
-          ctx.rect(brickX, brickY, brickWidth, brickHeight)
+          ctx.roundRect(brickX, brickY, brickWidth, brickHeight, 8)
           ctx.fillStyle = levelColors[currentLevel];
           ctx.fill()
           ctx.closePath()
@@ -129,19 +141,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const drawScore = () => {
     ctx.font = '16px Arial'
     ctx.fillStyle = levelColors[currentLevel]
-    ctx.fillText('Score: ' + score, 8, 20)
+    ctx.fillText('Score: ' + score, 10, 20)
   }
 
   const drawLives = () => {
     ctx.font = "16px Arial";
     ctx.fillStyle = levelColors[currentLevel];
-    ctx.fillText(`Lives:`, canvas.width - 100, 20);
+    ctx.fillText(`Lives:`, canvas.width - 95, 21);
 
     for (let i = 0; i < lives; i++) {
-      const liveX = i * (8 + 4) + canvas.width - 50
+      const liveX = i * 14 + canvas.width - 42
 
       ctx.beginPath()
-      ctx.rect(liveX, 8, 8, 15)
+      ctx.arc(liveX, 16, 6, 0, Math.PI * 2)
       ctx.fillStyle = levelColors[currentLevel];
       ctx.fill()
       ctx.closePath()
@@ -163,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (y + dy < ballRadius) {
       dy = -dy
-    } else if (y + dy > canvas.height - ballRadius - 5 * currentLevel) {
+    } else if (y + dy > canvas.height - ballRadius - paddleOffsetBottom * currentLevel) {
       if (x > paddleX && x < paddleX + paddleWidth) {
         dy = -dy
       } else {
@@ -185,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     x += dx;
     y += dy;
-    requestAnimationFrame(draw);
+    requestAnimation = requestAnimationFrame(draw);
   }
 
   const handleKeyDown = (e) => {
