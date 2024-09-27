@@ -8,9 +8,11 @@ body {
 }
 
 canvas {
-  background: #eee;
+  background: #FFF;
   display: block;
   margin: 1.5rem auto;
+  border: 1px solid #3d3d3f;
+  border-radius: 4px;
 }
 
 .actions {
@@ -18,17 +20,23 @@ canvas {
   justify-content: center;
 }
 
-.start-btn {
+.start-btn,
+.restart-btn {
   display: flex;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
-  border: none;
-  font-size: 1.5rem;
+  border-radius: 6px;
+  border: 1px solid #3d3d3f;
+  font-size: 1.25rem;
   margin: 1.5rem 0;
   transition: all 0.3s linear;
   cursor: pointer;
-  background: #0095DD;
-  color: white;
+  background: transparent;
+  color: #3d3d3f;
+  margin: 0 10px;
+}
+
+.restart-btn {
+  display: none;
 }
 
 .start-btn:active {

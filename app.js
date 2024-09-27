@@ -1,224 +1,346 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const canvas = document.querySelector('canvas')
-  const btn = document.querySelector('.start-btn')
-  const ctx = canvas.getContext('2d')
+const ballRadius = 10
 
-  const ballRadius = 10
-  const paddleHeight = 10
-  const paddleWidth = 70
-  const paddleOffsetBottom = 10
+const paddleHeight = 14
+const paddleWidth = 90
+const paddleOffsetBottom = 10
 
-  const brickRowCount = 3
-  const brickColumnCount = 5
-  const brickWidth = 70
-  const brickHeight = 20
-  const brickPadding = 15
-  const brickOffsetTop = 35
-  const brickOffsetLeft = 40
+const brickRowCount = 3
+const brickColumnCount = 5
+const brickWidth = 78
+const brickHeight = 24
+const brickPadding = 12
+const brickOffsetTop = 35
+const brickOffsetLeft = 26
 
-  let currentLevel = 5
-  const levelColors = ['#0095DD', '#f8b500', '#ff6f3c', '#402a23', '#eb2632', '#27296d']
-  const totalLevels = levelColors.length
+class Game {
+  level = 0
+  score = 0
+  lives = 3
+  delta = 0.5
+  speed = 2
+  gameOver = false
+  levelColors = ['#9bc400', '#ffde22', '#ff6f3c', '#51d0de', '#eb2632', '#27296d']
+  leftKeyPressed = false
+  rightKeyPressed = false
 
-  let paddleX = (canvas.width - paddleWidth) / 2
+  constructor(canvas) {
+    this.canvas = canvas
+    this.ctx = canvas.getContext('2d')
 
-  let x = canvas.width / 2
-  let y = canvas.height - 10 - paddleOffsetBottom * currentLevel
+    const color = this.levelColors[this.level]
 
-  let dx = 2 + currentLevel * 0.5
-  let dy = -2 - currentLevel * 0.5
-  
-  let leftPressed = false
-  let rightPressed = false
+    const paddleX = (canvas.width - paddleWidth) / 2
+    const paddleY = canvas.height - paddleHeight - paddleOffsetBottom * this.level
 
-  let score = 0
-  let lives = 3
+    const ballX = canvas.width / 2
+    const ballY = canvas.height - paddleHeight - paddleOffsetBottom * this.level - ballRadius
+    const dx = 2 + this.level * this.delta
+    const dy = -2 - this.level * this.delta
 
-  let requestAnimation
+    this.ball = new Ball(ballX, ballY, color, ballRadius, dx, dy)
+    this.paddle = new Paddle(paddleX, paddleY, color , paddleWidth, paddleHeight)
+    this.bricks = []
+    this.generateBrickList()
+  }
 
-  const bricks = [];
+  generateBrickList() {
+    for (let c = 0; c < brickColumnCount; c++) {
+      for (let r = 0; r < brickRowCount; r++) {
+        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft
+        const brickY = r * (brickHeight + brickPadding * 1.25) + brickOffsetTop
 
-  for (let c = 0; c < brickColumnCount; c++) {
-    bricks[c] = [];
-    for (let r = 0; r < brickRowCount; r++) {
-      bricks[c][r] = { x: 0, y: 0, status: 1 };
+        this.bricks.push(
+          new Brick(brickX, brickY, brickWidth, brickHeight, this.getLevelColor())
+        )
+      }
     }
   }
 
-  const resetLevel = () => {
-    x = canvas.width / 2
-    y = canvas.height - 10 - paddleOffsetBottom * currentLevel
+  getLevelColor() {
+    return this.levelColors[Math.min(this.level, this.levelColors.length - 1)]
+  }
+
+  setLevel(level) {
+    this.level = level
+  }
+
+  getContext() {
+    return this.canvas.getContext('2d')
+  }
+
+  start() {
+    this.requestAnimationId = null
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    this.paddle.draw(this.ctx)
+    this.ball.draw(this.ctx)
+    this.drawBricks()
+    this.listenKeyboard()
+    this.collisionDetection()
+    this.drawScore()
+    this.drawLives()
+    this.ball.move({
+      width: this.canvas.width,
+      height: this.canvas.height,
+      level: this.level,
+      paddleX: this.paddle.getX(),
+      handleBottomCollision: () => {
+        this.lives--
+        if (this.lives) {
+          this.resetCurrentLevel()
+        } else {
+          alert('GAME OVER!')
+          this.gameOver = true
+        }
+      }
+    })
+
+    if (this.gameOver) return
+
+    requestAnimationFrame(() => this.start())
+  }
+
+  drawBricks() {
+    this.bricks.forEach(brick => brick.draw(this.ctx))
+  }
+
+  drawScore() {
+    this.ctx.font = '16px Arial'
+    this.ctx.fillStyle = this.levelColors[this.level]
+    this.ctx.fillText(`Score: ${this.score}`, 10, 20)
+  }
+
+  brickAndBallColliding(brick) {
+    const distX = Math.abs(this.ball.getX() - brick.getX() - brick.width / 2)
+    const distY = Math.abs(this.ball.getY() - brick.getY() - brick.height / 2)
+
+    if (distX > (brick.width / 2 + ballRadius)) {
+        return false;
+    }
+
+    if (distY > (brick.height / 2 + ballRadius)) {
+        return false;
+    }
+
+    if (distX <= (brick.width / 2)) {
+        return true;
+    }
+    if (distY <= (brick.height / 2)) {
+        return true;
+    }
+
+    const dx = distX - brick.width / 2;
+    const dy = distY - brick.height / 2;
+    return (dx * dx + dy * dy <= (ballRadius * ballRadius));
+  }
+
+  collisionDetection() {
+    for (let i = 0; i < this.bricks.length; i++) {
+      if (this.brickAndBallColliding(this.bricks[i])) {
+        this.ball.setDy(this.ball.getDy() * -1)
+        this.score++
+        this.bricks.splice(i, 1)
+        return
+      }
+    }
+
+    if (this.checkIsCompleteLevel()) {
+      this.displayNextLevel()
+    }
+  }
+
+  displayNextLevel() {
+    this.level++
+    this.generateBrickList()
+    this.resetCurrentLevel()
+  }
+
+  resetCurrentLevel() {
+    const maxPaddleOffsetBottom = paddleOffsetBottom * Math.min(this.level, this.levelColors.length - 1)
+    const ballX = this.canvas.width / 2
+    const ballY = this.canvas.height - paddleHeight - maxPaddleOffsetBottom - ballRadius
+    const dx = 2 + this.level * this.delta
+    const dy = -2 - this.level * this.delta
+    const paddleX = (this.canvas.width - paddleWidth) / 2
+    const paddleY = this.canvas.height - paddleHeight - maxPaddleOffsetBottom
+    const color = this.getLevelColor()
+
+    this.ball = new Ball(ballX, ballY, color, ballRadius, dx, dy)
+    this.paddle = new Paddle(paddleX, paddleY, color, paddleWidth, paddleHeight)
+  }
+
+  drawLives() {
+    this.ctx.font = "16px Arial"
+    this.ctx.fillStyle = this.getLevelColor()
+    this.ctx.fillText(`Lives:`, this.canvas.width - 95, 21)
+
+    for (let i = 0; i < this.lives; i++) {
+      const liveX = i * 14 + this.canvas.width - 42
+
+      this.ctx.beginPath()
+      this.ctx.arc(liveX, 16, 6, 0, Math.PI * 2)
+      this.ctx.fillStyle = this.getLevelColor()
+      this.ctx.fill()
+      this.ctx.closePath()
+    }
+  }
+
+  listenKeyboard() {
+    const paddleX = this.paddle.getX()
+
+    if (this.rightKeyPressed && paddleX < this.canvas.width - paddleWidth) {
+      this.paddle.setX(paddleX + paddleWidth * 0.1)
+    } else if (this.leftKeyPressed && paddleX > 0) {
+      this.paddle.setX(paddleX - paddleWidth * 0.1)
+    }
+  }
+
+  checkIsCompleteLevel() {
+    return this.bricks.length === 0
+  }
+
+  setRightKeyPressed(value) {
+    this.rightKeyPressed = value
+  }
+
+  setLeftKeyPressed(value) {
+    this.leftKeyPressed = value
+  }
+}
+
+class Figure {
+  constructor(x, y, color) {
+    this.x = x
+    this.y = y
+    this.color = color
+  }
+
+  setX(x) {
+    this.x = x
+  }
+
+  getX() {
+    return this.x
+  }
+
+  setY(y) {
+    this.y = y
+  }
+
+  getY() {
+    return this.y
+  }
+
+  setColor(color) {
+    this.color = color
+  }
+}
+
+class Paddle extends Figure {
+
+  constructor(x, y, color, width, height) {
+    super(x, y, color)
+    this.width = width
+    this.height = height
+  }
+
+  draw(ctx) {
+    ctx.beginPath()
+    ctx.roundRect(this.x, this.y, this.width, this.height, this.width / 2)
+    ctx.fillStyle = this.color
+    ctx.fill()
+    ctx.closePath()
+  }
+}
+
+class Ball extends Figure {
+
+  constructor(x, y, color, radius, dx, dy) {
+    super(x, y, color)
+    this.radius = radius
+    this.dx = dx * this.generateRandomDirection()
+    this.dy = -dy
+  }
+
+  generateRandomDirection() {
     const index = Math.random() < 0.5
-    dx = ([1, -1].at(index)) * (2 + currentLevel * 0.5)
-    dy = -2 - currentLevel * 0.5
-    paddleX = (canvas.width - paddleWidth) / 2;
+    return [1, -1].at(index)
   }
 
-  const nextLevel = () => {
-    currentLevel++
-
-    if (currentLevel >= totalLevels) {
-      alert('CONGRATULATIONS YOU COMPLETED ALL LEVELS!')
-      cancelAnimationFrame(requestAnimation)
-      document.location.reload()
-    } else {
-      for (let c = 0; c < brickColumnCount; c++) {
-        bricks[c] = [];
-        for (let r = 0; r < brickRowCount; r++) {
-          bricks[c][r] = { x: 0, y: 0, status: 1 };
-        }
-      }
-      resetLevel()
-    }
+  setDx(dx) {
+    this.dx = dx
   }
 
-  const collisionDetection = () => {
-    for (let c = 0; c < brickColumnCount; c++) {
-      for (let r = 0; r < brickRowCount; r++) {
-        const brick = bricks[c][r];
-        if (brick.status === 1) {
-          if (x > brick.x && x < brick.x + brickWidth && y > brick.y && y < brick.y + brickHeight) {
-            dy = -dy
-            brick.status = 0
-            score++
-          }
-        }
-      }
-    }
-
-    if (checkBreakAllBricks()) {
-      nextLevel()
-    }
+  setDy(dy) {
+    this.dy = dy
   }
 
-  const checkBreakAllBricks = () => {
-    for (let c = 0; c < brickColumnCount; c++) {
-      for (let r = 0; r < brickRowCount; r++) {
-        const brick = bricks[c][r];
-        if (brick.status === 1) {
-          return false
-        }
-      }
-    }
-
-    return true
+  getDy() {
+    return this.dy
   }
 
-  const drawBall = () => {
+  draw(ctx) {
     ctx.beginPath()
-    ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
-    ctx.fillStyle = levelColors[currentLevel];
-    ctx.fill();
-    ctx.closePath();
-  }
-
-  const drawPaddle = () => {
-    ctx.beginPath()
-    ctx.roundRect(paddleX, canvas.height - paddleHeight - paddleOffsetBottom * currentLevel, paddleWidth, paddleHeight, 4)
-    ctx.fillStyle = levelColors[currentLevel];
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+    ctx.fillStyle = this.color
     ctx.fill()
     ctx.closePath()
   }
 
-  const drawBricks = () => {
-    for (let c = 0; c < brickColumnCount; c++) {
-      for (let r = 0; r < brickRowCount; r++) {
-        if (bricks[c][r].status === 1) {
-          const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft
-          const brickY = r * (brickHeight + brickPadding) + brickOffsetTop
-          bricks[c][r].x = brickX;
-          bricks[c][r].y = brickY;
-          ctx.beginPath();
-          ctx.roundRect(brickX, brickY, brickWidth, brickHeight, 8)
-          ctx.fillStyle = levelColors[currentLevel];
-          ctx.fill()
-          ctx.closePath()
-        }
-      }
-    }
-  }
+  move({ width, height, level, paddleX, handleBottomCollision }) {
+    this.x += this.dx
+    this.y += this.dy
 
-  const drawScore = () => {
-    ctx.font = '16px Arial'
-    ctx.fillStyle = levelColors[currentLevel]
-    ctx.fillText('Score: ' + score, 10, 20)
-  }
-
-  const drawLives = () => {
-    ctx.font = "16px Arial";
-    ctx.fillStyle = levelColors[currentLevel];
-    ctx.fillText(`Lives:`, canvas.width - 95, 21);
-
-    for (let i = 0; i < lives; i++) {
-      const liveX = i * 14 + canvas.width - 42
-
-      ctx.beginPath()
-      ctx.arc(liveX, 16, 6, 0, Math.PI * 2)
-      ctx.fillStyle = levelColors[currentLevel];
-      ctx.fill()
-      ctx.closePath()
-    }
-  }
-
-  const draw = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBricks()
-    drawBall()
-    drawPaddle()
-    collisionDetection()
-    drawScore()
-    drawLives()
-
-    if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-      dx = -dx
+    if (this.x > width - this.radius || this.x < this.radius) {
+      this.dx *= -1
     }
 
-    if (y + dy < ballRadius) {
-      dy = -dy
-    } else if (y + dy > canvas.height - ballRadius - paddleOffsetBottom * currentLevel) {
-      if (x > paddleX && x < paddleX + paddleWidth) {
-        dy = -dy
+    if (this.y + this.dy <= this.radius) {
+      this.dy *= -1
+    } else if (this.y > height - this.radius - paddleHeight - paddleOffsetBottom * level) {
+      if (this.x >= paddleX && this.x <= paddleX + paddleWidth) {
+        this.dy = -this.dy
       } else {
-        lives--
-        if (!lives) {
-          alert('GAME OVER!')
-          document.location.reload()
-        } else {
-          resetLevel()
-        }
+        handleBottomCollision()
       }
     }
+  }
+}
 
-    if (rightPressed && paddleX < canvas.width - paddleWidth) {
-      paddleX += 7;
-    } else if (leftPressed && paddleX > 0) {
-      paddleX -= 7;
-    }
+class Brick extends Figure {
 
-    x += dx;
-    y += dy;
-    requestAnimation = requestAnimationFrame(draw);
+  constructor(x, y, width, height, color) {
+    super(x, y, color)
+    this.width = width
+    this.height = height
   }
 
-  const handleKeyDown = (e) => {
-    rightPressed = ['Right', 'ArrowRight'].includes(e.key)
-    leftPressed = ['Left', 'ArrowLeft'].includes(e.key)
+  draw(ctx) {
+    ctx.beginPath()
+    ctx.roundRect(this.x, this.y, this.width, this.height, 6)
+    ctx.fillStyle = this.color
+    ctx.fill()
+    ctx.closePath()
   }
+}
 
-  const handleKeyUp = (e) => {
-    rightPressed = false
-    leftPressed = false
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.querySelector('canvas')
+  const btn = document.querySelector('.start-btn')
 
-  const startGame = () => {
-    draw()
-  }
+  const game = new Game(canvas)
 
   btn.addEventListener('click', () => {
-    startGame()
+    game.start()
     btn.disabled = true
   })
 
-  document.addEventListener('keydown', handleKeyDown, false)
-  document.addEventListener('keyup', handleKeyUp, false)
+  document.addEventListener('keydown', (evt) => {
+    game.setLeftKeyPressed(['Left', 'ArrowLeft'].includes(evt.key))
+    game.setRightKeyPressed(['Right', 'ArrowRight'].includes(evt.key))
+  })
+
+  document.addEventListener('keyup', () => {
+    game.setLeftKeyPressed(false)
+    game.setRightKeyPressed(false)
+  })
 })
