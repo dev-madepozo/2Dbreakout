@@ -17,7 +17,7 @@ class Game {
   score = 0
   lives = 3
   delta = 0.5
-  speed = 2
+  velocity = 2
   gameOver = false
   levelColors = ['#9bc400', '#ffde22', '#ff6f3c', '#51d0de', '#eb2632', '#27296d']
   leftKeyPressed = false
