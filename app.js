@@ -1,9 +1,12 @@
+// Ball variables
 const ballRadius = 10
 
+// Paddle variables
 const paddleHeight = 14
 const paddleWidth = 90
 const paddleOffsetBottom = 10
 
+// Bricks variables
 const brickRowCount = 3
 const brickColumnCount = 5
 const brickWidth = 78
