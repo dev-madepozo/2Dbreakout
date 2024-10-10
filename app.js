@@ -22,7 +22,7 @@ class Game {
   delta = 0.5
   velocity = 2
   gameOver = false
-  levelColors = ['#51d0de', '#9bc400', '#ffde22', '#ff6f3c', '#eb2632', '#27296d']
+  levelColors = ['#51d0de', '#9bc400', '#ffde22', '#ff6f3c', '#eb2632', '#27296d', '#000']
   leftKeyPressed = false
   rightKeyPressed = false
 
